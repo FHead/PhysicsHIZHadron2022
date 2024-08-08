@@ -177,17 +177,17 @@ int main(int argc, char *argv[])
          if(NGen == 0)   // no need to continue without a gen Z
             continue;
 
-			// Then find all the reco Zs			
+         // Then find all the reco Zs         
          vector<TLorentzVector> PRecoZ, PRecoMu1, PRecoMu2;
-			for(int ipair = 0; ipair < MMu.NDi; ipair++)
-			{
-				// We want opposite-charge muons with some basic kinematic cuts
-				if(MMu.DiCharge1[ipair] == MMu.DiCharge2[ipair])   continue;
-				if(fabs(MMu.DiEta1[ipair]) > 2.4)                  continue;
-				if(fabs(MMu.DiEta2[ipair]) > 2.4)                  continue;
-				if(MMu.DiPT1[ipair] < 20)                          continue;
-				if(MMu.DiPT2[ipair] < 20)                          continue;
-				if(MMu.DimuonPassTightCut(ipair) == false)         continue;
+         for(int ipair = 0; ipair < MMu.NDi; ipair++)
+         {
+            // We want opposite-charge muons with some basic kinematic cuts
+            if(MMu.DiCharge1[ipair] == MMu.DiCharge2[ipair])   continue;
+            if(fabs(MMu.DiEta1[ipair]) > 2.4)                  continue;
+            if(fabs(MMu.DiEta2[ipair]) > 2.4)                  continue;
+            if(MMu.DiPT1[ipair] < 20)                          continue;
+            if(MMu.DiPT2[ipair] < 20)                          continue;
+            if(MMu.DimuonPassTightCut(ipair) == false)         continue;
             if(MMu.DiMass[ipair] < 60)                         continue;
             
             TLorentzVector Z, Mu1, Mu2;
@@ -200,7 +200,7 @@ int main(int argc, char *argv[])
             PRecoZ.push_back(Z);
             PRecoMu1.push_back(Mu1);
             PRecoMu2.push_back(Mu2);
-			}
+         }
          
          int NReco = PRecoZ.size();
          HNReco.Fill(NReco);
