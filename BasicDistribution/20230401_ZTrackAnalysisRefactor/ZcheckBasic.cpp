@@ -63,8 +63,9 @@ TFile *file_bkgMCgen;
 
 TFile *file_sigMCgen0Sub;
 
-const char *typeofdata = "v14/20230803/loose";
-const char *typeofdata1 = "v14_20230803_loose";
+const char *typeofdata = "v17d_PFMuon/20240101/SigBkg";
+const char *typeofdata1 = "360_ov1";
+
 const char *typeofdatatext = "single muon";
 
 void ZcheckBasic_single(int binnum=40,float ptL=20,float ptH=2000,float centL=0,float centH=90,float TptL=0,float TptH=10000)
@@ -1235,15 +1236,15 @@ int main(int argc, char *argv[]){
 
   style();
 
-   file_sigMC = TFile::Open("~/eos_base/BasicPlots/GraphMCSignalLoose_v16-1.root","read");
-   file_bkgMC = TFile::Open("GraphMCBackground_v15c-2.root","read");
-   file_sigDA = TFile::Open("~/eos_base/BasicPlots/GraphDataSignalLoose_v16-1.root","read");
-   file_bkgDA = TFile::Open("~/eos_base/BasicPlots/GraphDataBackground_v15c-1.root","read");
-   file_ppMC  = TFile::Open("~/eos_base/BasicPlots/GraphPPMC0Sub_v16-1.root","read");
+   file_sigMC = TFile::Open("~/eos_base/BasicPlots/GraphMCSignal_v17_PFmuon.root","read");
+   file_bkgMC = TFile::Open("~/eos_base/BasicPlots/GraphMCSigBkg_v17d_PFmuon_350_ov5.root","read");
+   file_sigDA = TFile::Open("~/eos_base/BasicPlots/GraphDataSignal_v17_PFmuon.root","read");
+   file_bkgDA = TFile::Open("~/eos_base/BasicPlots/GraphDataSigBkg_v17d_PFmuon.root","read");
+   file_ppMC  = TFile::Open("~/eos_base/BasicPlots/GraphPPMC0Sub_v17_PFmuon.root","read");
 
-   file_sigMCgen = TFile::Open("~/eos_base/BasicPlots/GraphMCSignalGen_v16-1.root","read");
-   file_bkgMCgen = TFile::Open("GraphMCBackgroundGen_v15c-2.root","read");
-   file_sigMCgen0Sub = TFile::Open("~/eos_base/BasicPlots/GraphMCSignalGen0Sub_v16-1.root","read");
+   file_sigMCgen = TFile::Open("~/eos_base/BasicPlots/GraphMCSignalGen_v17_PFmuon.root","read");
+   file_bkgMCgen = TFile::Open("~/eos_base/BasicPlots/GraphMCGenSigBkg_v17b_checkz.root","read");
+   file_sigMCgen0Sub = TFile::Open("~/eos_base/BasicPlots/GraphMCSignalGen0Sub_v17_PFmuon.root","read");
 
   /* 
   ZcheckBasic_single(40, 20, 2000,  0, 90,  0, 1000);
@@ -1258,11 +1259,15 @@ int main(int argc, char *argv[]){
 */
   //ZcheckBasic_single(40, 10, 2000,  0, 90,  2, 1000);
 
-
   ZcheckBasic_single(40, 40, 200,  0, 10,  1, 1000);
-  ZcheckBasic_single(40, 40, 200, 10, 30,  1, 1000);
-  ZcheckBasic_single(40, 40, 200, 30, 50,  1, 1000);
-  ZcheckBasic_single(40, 40, 200, 50, 90,  1, 1000);
+  ZcheckBasic_single(40, 40, 200,  0, 10,  1, 2);
+  ZcheckBasic_single(40, 40, 200,  0, 10,  2, 4);
+  ZcheckBasic_single(40, 40, 200,  0, 10,  4, 10);
+
+  //ZcheckBasic_single(40, 40, 200,  0, 10,  1, 1000);
+  //ZcheckBasic_single(40, 40, 200, 10, 30,  1, 1000);
+  //ZcheckBasic_single(40, 40, 200, 30, 50,  1, 1000);
+  //ZcheckBasic_single(40, 40, 200, 50, 90,  1, 1000);
 
   return 0;
 }

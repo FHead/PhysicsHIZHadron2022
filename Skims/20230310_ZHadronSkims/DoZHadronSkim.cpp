@@ -32,8 +32,8 @@ struct EventIndex;
 struct JetRecord;
 int main(int argc, char *argv[]);
 int FindFirstAbove(vector<EventIndex> &Indices, double X);
-double GetHFSum(PFTreeMessenger *M);
-double GetGenHFSum(GenParticleTreeMessenger *M);
+double GetHFSum(PFTreeMessenger *M, double MinPFPT);
+double GetGenHFSum(GenParticleTreeMessenger *M, double MinGenTrackPT);
 
 struct EventIndex
 {
@@ -102,7 +102,7 @@ public:
 
 int main(int argc, char *argv[])
 {
-   string Version = "V17";
+   string Version = "V18";
 
    CommandLine CL(argc, argv);
 
@@ -112,6 +112,8 @@ int main(int argc, char *argv[])
    double Fraction                    = CL.GetDouble("Fraction", 1.00);
    double MinZPT                      = CL.GetDouble("MinZPT", 20.00);
    double MinTrackPT                  = CL.GetDouble("MinTrackPT", 1.00);
+   double MinGenTrackPT               = CL.GetDouble("MinGenTrackPT", 0.40);
+   double MinPFPT                     = CL.GetDouble("MinPFPT", 0);
    bool IsData                        = CL.GetBool("IsData", false);
    bool IsPP                          = CL.GetBool("IsPP", false);
    bool DoGenCorrelation              = CL.GetBool("DoGenCorrelation", false);
@@ -140,6 +142,8 @@ int main(int argc, char *argv[])
 
    bool DoCS                          = CL.GetBool("DoCS", false);
    string RhoTreeName                 = CL.Get("RhoTree", "hiPuRhoAnalyzer/t");
+
+   bool WithProgressBar               = CL.GetBool("WithProgressBar", false);
 
    // Assert(!(IsPP == true && IsData == true), "Data selections for pp not implemented yet");
    Assert(!(DoGenCorrelation == true && DoGenLevel == false), "You need to turn on gen level to do gen correlation!");
@@ -193,6 +197,10 @@ int main(int argc, char *argv[])
             TrackEfficiencyPbPb = new TrkEff2018PbPb("general", "Tight", false, TrackEfficiencyPath);
       }
    }
+
+   //for(int iTRP=0;iTRP<TrackResidualPath.size();iTRP++)
+   //   cout<<"TrackResidualPath = "<<TrackResidualPath[iTRP]<<endl;
+
    TrackResidualCentralityCorrector TrackResidual(TrackResidualPath);
 
    // Do some pre-caching if we read background files.
@@ -224,7 +232,7 @@ int main(int argc, char *argv[])
             MBackgroundGen[iB]->GetEntry(iE);
             MBackgroundPF[iB]->GetEntry(iE);
             EventIndex E;
-            E.HF = DoGenCorrelation ? GetGenHFSum(MBackgroundGen[iB]) : (DoSumET ? MBackgroundEvent[iB]->hiHF : GetHFSum(MBackgroundPF[iB]));
+            E.HF = DoGenCorrelation ? GetGenHFSum(MBackgroundGen[iB], MinGenTrackPT) : (DoSumET ? MBackgroundEvent[iB]->hiHF : GetHFSum(MBackgroundPF[iB], MinPFPT));
             E.VZ = MBackgroundEvent[iB]->vz;
             E.File = iB;
             E.Event = iE;
@@ -257,6 +265,8 @@ int main(int argc, char *argv[])
    Key = "Fraction";                Value = InfoString(Fraction);                InfoTree.Fill();
    Key = "MinZPT";                  Value = InfoString(MinZPT);                  InfoTree.Fill();
    Key = "MinTrackPT";              Value = InfoString(MinTrackPT);              InfoTree.Fill();
+   Key = "MinGenTrackPT";           Value = InfoString(MinGenTrackPT);           InfoTree.Fill();
+   Key = "MinPFPT";                 Value = InfoString(MinPFPT);                 InfoTree.Fill();
    Key = "IsData";                  Value = InfoString(IsData);                  InfoTree.Fill();
    Key = "IsPP";                    Value = InfoString(IsPP);                    InfoTree.Fill();
    Key = "DoGenCorrelation";        Value = InfoString(DoGenCorrelation);        InfoTree.Fill();
@@ -321,7 +331,7 @@ int main(int argc, char *argv[])
       for(int iE = 0; iE < EntryCount; iE++)
       {
          // Progress bar stuff
-         if(EntryCount < 300 || (iE % (EntryCount / 250)) == 0)
+         if(WithProgressBar && (EntryCount < 300 || (iE % (EntryCount / 250)) == 0))
          {
             Bar.Update(iE);
             Bar.Print();
@@ -516,8 +526,10 @@ int main(int argc, char *argv[])
             }
    
             // Loop over reco dimuon pairs
+            //for(int ipair = 0; ipair < 1; ipair++)
             for(int ipair = 0; ipair < MSignalMu.NDi; ipair++)
             {
+               //if(MSignalMu.NDi < 1) continue;
                // We want opposite-charge muons with some basic kinematic cuts
                if(MSignalMu.DiCharge1[ipair] == MSignalMu.DiCharge2[ipair])        continue;
                if(fabs(MSignalMu.DiEta1[ipair]) > 2.4)                             continue;
@@ -561,7 +573,7 @@ int main(int argc, char *argv[])
                NTuple.Fill(MSignalMu.DiMass[ipair], MSignalMu.DiPT[ipair], MSignalMu.DiEta[ipair], MSignalMu.DiPhi[ipair]);
             }
 
-            MZHadron.SignalHF = DoGenCorrelation ? GetGenHFSum(&MSignalGen) : (DoSumET ? MSignalEvent.hiHF : GetHFSum(&MSignalPF));
+            MZHadron.SignalHF = DoGenCorrelation ? GetGenHFSum(&MSignalGen, MinGenTrackPT) : (DoSumET ? MSignalEvent.hiHF : GetHFSum(&MSignalPF, MinPFPT));
             MZHadron.SignalVZ = MSignalEvent.vz;
 
             // Z-track correlation
@@ -641,6 +653,11 @@ int main(int argc, char *argv[])
                int NTrack = DoGenCorrelation ? MGen->Mult : (IsPP ? MTrackPP->nTrk : MTrack->TrackPT->size());
                for(int itrack = 0; itrack < NTrack; itrack++)
                {
+                  if(IsData == false && IsPP == false){
+                     if(MGen->PT->at(itrack) < MinGenTrackPT )
+                        continue;
+                  }
+
                   if(DoGenCorrelation == false)   // track selection on reco
                   {
                      if(IsPP == true)
@@ -988,6 +1005,11 @@ int main(int argc, char *argv[])
                int NTrack = IsPP ? MSignalTrackPP.nTrk : MSignalTrack.TrackPT->size();
                for(int iTrack = 0; iTrack < NTrack; iTrack++)
                {
+                  //if(IsData == false && IsPP == false){
+                  //   if(MGen->PT->at(itrack) < MinGenTrackPT )
+                  //      continue;
+                  //}
+
                   if(IsPP == true)
                   {
                      if(DoAlternateTrackSelection == false && MSignalTrackPP.PassZHadron2022Cut(iTrack) == false)
@@ -1221,9 +1243,11 @@ int main(int argc, char *argv[])
          }
       }
 
-      Bar.Update(EntryCount);
-      Bar.Print();
-      Bar.PrintLine();
+      if(WithProgressBar){
+         Bar.Update(EntryCount);
+         Bar.Print();
+         Bar.PrintLine();
+      }
 
       InputFile.Close();
    }
@@ -1298,7 +1322,7 @@ int FindFirstAbove(vector<EventIndex> &Indices, double X)
    return Low;
 }
 
-double GetHFSum(PFTreeMessenger *M)
+double GetHFSum(PFTreeMessenger *M, double MinPFPT)
 {
    if(M == nullptr)
       return -1;
@@ -1307,7 +1331,7 @@ double GetHFSum(PFTreeMessenger *M)
 
    double Sum = 0;
    for(int iPF = 0; iPF < M->ID->size(); iPF++)
-      if(fabs(M->Eta->at(iPF)) > 3 && fabs(M->Eta->at(iPF)) < 5)
+      if(fabs(M->Eta->at(iPF)) > 3 && fabs(M->Eta->at(iPF)) < 5 && M->PT->at(iPF) > MinPFPT )
          Sum = Sum + M->E->at(iPF);
 
    // cout << Sum << endl;
@@ -1315,7 +1339,7 @@ double GetHFSum(PFTreeMessenger *M)
    return Sum;
 }
 
-double GetGenHFSum(GenParticleTreeMessenger *M)
+double GetGenHFSum(GenParticleTreeMessenger *M, double MinGenTrackPT)
 {
    if(M == nullptr)
       return -1;
@@ -1328,6 +1352,8 @@ double GetGenHFSum(GenParticleTreeMessenger *M)
       if(fabs(M->Eta->at(iGen)) < 3)
          continue;
       if(fabs(M->Eta->at(iGen)) > 5)
+         continue;
+      if(fabs(M->PT->at(iGen)) < MinGenTrackPT)
          continue;
       if(M->DaughterCount->at(iGen) > 0)
          continue;

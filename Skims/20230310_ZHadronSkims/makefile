@@ -19,23 +19,23 @@ Execute: DoZHadronSkim.cpp
 		# $(FJExtra) $(FJCExtra)
 
 TestRun: Execute
-	./Execute --Input $(PbPbSignalSingleMuon)/0000/HiForestMiniAOD_14.root \
-		--Output /tmp/$(USER)/Test.root --Fraction 0.1 \
+	./Execute --Input $(PbPbSignalSingleMuon)/0000/HiForestMiniAOD_867.root \
+		--Output /tmp/$(USER)/Test.root --Fraction 1 --WithProgressBar true \
 		`./Expand Setting.dh PbPbSignalData Nominal`
 	
 TestRunMC: Execute
-	time ./Execute --Input $(PbPbSignalMC)/HiForestMiniAOD_211.root \
-		--Output /tmp/$(USER)/TestMC.root --Fraction 0.02 \
+	time ./Execute --Input $(PbPbSignalMC)/HiForestMiniAOD_144.root,$(PbPbSignalMC)/HiForestMiniAOD_145.root,$(PbPbSignalMC)/HiForestMiniAOD_146.root,$(PbPbSignalMC)/HiForestMiniAOD_147.root,$(PbPbSignalMC)/HiForestMiniAOD_148.root \
+		--Output TestMC10.root --Fraction 1 --WithProgressBar true \
 		`./Expand Setting.dh PbPbSignalMC Nominal`
 
 TestRunGen: Execute
 	./Execute --Input $(PbPbSignalMC)/HiForestMiniAOD_114.root \
-		--Output /tmp/$(USER)/TestGenMC.root --Fraction 0.1 \
+		--Output /tmp/$(USER)/TestGenMC.root --Fraction 0.1 --WithProgressBar true \
 		`./Expand Setting.dh PbPbSignalGenMC Nominal`
 
 TestRunGenPP: Execute
 	./Execute --Input `ls $(PPSignalMC)/*root | head -n 2 | tr '\n' ','` \
-		--Output /tmp/$(USER)/TestGenPP.root --Fraction 1 \
+		--Output /tmp/$(USER)/TestGenPP.root --Fraction 1 --WithProgressBar true \
 		`./Expand Setting.dh PPSignalGenMC Nominal`
 
 TestRunBackground: Execute
@@ -46,12 +46,12 @@ TestRunBackground: Execute
 
 TestRunPP: Execute
 	./Execute --Input `ls $(PPSignalMC)/*root | head -n 2 | tr '\n' ','` \
-		--Output /tmp/$(USER)/TestPP.root --Fraction 0.1 \
+		--Output /tmp/$(USER)/TestPP.root --Fraction 0.1 --WithProgressBar true \
 		`./Expand Setting.dh PPSignalMC Nominal`
 
 TestRunPPData: Execute
 	./Execute --Input $(PPSignalData)/0000/HiForestAOD_12.root \
-		--Output /tmp/$(USER)/Test.root --Fraction 0.1 \
+		--Output /tmp/$(USER)/Test.root --Fraction 0.1 --WithProgressBar true \
 		`./Expand Setting.dh PPSignalData Nominal`
 
 TestRunBackgroundSimple: Execute
@@ -95,65 +95,68 @@ TestRunRandomMCGenBackground: Execute
 
 # EOSBase = /eos/cms/store/group/phys_heavyions/chenyi/PhysicsWorkspace/HIZHadron2022/Skims/20230310_ZHadronSkims
 EOSBase = /eos/cms/store/group/phys_heavyions/pchou
+# EOSBase = /eos/home-p/pchou
+# AFSBase = /afs/cern.ch/user/p/pchou
+CERNBOX = /eos/home-p/pchou
 
 PrepareToRun:
 	bash PrepareInput.sh \
 		'$(PbPbSignalSingleMuon)/*/' \
-		5 LogData_v17/ $(EOSBase)/OutputData_v17/ \
+		5 LogData_v18_PFmuon_mZ/ $(EOSBase)/OutputData_v18_PFmuon_mZ/ \
 		--Fraction 1 `./Expand Setting.dh PbPbSignalData Nominal`
 
 PrepareToRunMC:
 	bash PrepareInput.sh \
 		$(PbPbSignalMC)/ \
-		5 LogMC_v17/ $(EOSBase)/OutputMC_v17/ \
+		5 LogMC_v18_PFmuon_mZ/ $(CERNBOX)/OutputMC_v18_PFmuon_mZ/ \
 		--Fraction 1 `./Expand Setting.dh PbPbSignalMC Nominal`
 
 PrepareToRunLoose:
 	bash PrepareInput.sh \
 		'$(PbPbSignalSingleMuon)/*/' \
-		5 LogDataLoose_v17/ $(EOSBase)/OutputDataLoose_v17/ \
+		5 LogDataLoose_v17_PFmuon/ $(EOSBase)/OutputDataLoose_v17_PFmuon/ \
 		--Fraction 1 `./Expand Setting.dh PbPbSignalData Loose`
 
 PrepareToRunMCLoose:
 	bash PrepareInput.sh \
 		$(PbPbSignalMC)/ \
-		5 LogMCLoose_v17/ $(EOSBase)/OutputMCLoose_v17/ \
+		5 LogMCLoose_v17_PFmuon/ $(EOSBase)/OutputMCLoose_v17_PFmuon/ \
 		--Fraction 1 `./Expand Setting.dh PbPbSignalMC Loose`
 
 PrepareToRunTight:
 	bash PrepareInput.sh \
 		'$(PbPbSignalSingleMuon)/*/' \
-		5 LogDataTight_v17/ $(EOSBase)/OutputDataTight_v17/ \
+		5 LogDataTight_v17_PFmuon/ $(EOSBase)/OutputDataTight_v17_PFmuon/ \
 		--Fraction 1 `./Expand Setting.dh PbPbSignalData Tight`
 
 PrepareToRunMCTight:
 	bash PrepareInput.sh \
 		$(PbPbSignalMC)/ \
-		5 LogMCTight_v17/ $(EOSBase)/OutputMCTight_v17/ \
+		5 LogMCTight_v17_PFmuon/ $(EOSBase)/OutputMCTight_v17_PFmuon/ \
 		--Fraction 1 `./Expand Setting.dh PbPbSignalMC Tight`
 
 PrepareToRunGenMC:
 	bash PrepareInput.sh \
 		$(PbPbSignalMC)/ \
-		5 LogGenMC_v17/ $(EOSBase)/OutputMCGen_v17/ \
+		5 LogGenMC_v18_PFmuon_mZ/ $(CERNBOX)/OutputMCGen_v18_PFmuon_mZ/ \
  		--Fraction 1 `./Expand Setting.dh PbPbSignalGenMC Nominal`
 
 PrepareToRunPP:
 	bash PrepareInput.sh \
 		$(PPSignalMC)/ \
-		10 LogPP_v17/ $(EOSBase)/OutputPPMC_v17/ \
+		10 LogPP_v18_PFmuon_mZ/ $(CERNBOX)/OutputPPMC_v18_PFmuon_mZ/ \
  		--Fraction 1 `./Expand Setting.dh PPSignalMC Nominal`
 
 PrepareToRunGenPP:
 	bash PrepareInput.sh \
 		$(PPSignalMC)/ \
-		10 LogGenPP_v17/ $(EOSBase)/OutputPPMCGen_v17/ \
+		10 LogGenPP_v18_PFmuon_mZ/ $(CERNBOX)/OutputPPMCGen_v18_PFmuon_mZ/ \
  		--Fraction 1 `./Expand Setting.dh PPSignalGenMC Nominal`
 
 PrepareToRunPPData:
 	bash PrepareInput.sh \
 		'$(PPSignalData)/*/' \
-		10 LogPPData_v17/ $(EOSBase)/OutputPPData_v17/ \
+		10 LogPPData_v18_PFmuon_mZ/ $(CERNBOX)/OutputPPData_v18_PFmuon_mZ/ \
  		--Fraction 1 `./Expand Setting.dh PPSignalData Nominal`
 
 PrepareToRunBackground:

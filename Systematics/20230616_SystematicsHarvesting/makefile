@@ -7,7 +7,7 @@ Prepare:
 TestRun: Execute
 	./Execute
 
-RunSystematics: Execute ExecuteCombine
+RunSystematics: Prepare Execute ExecuteCombine
 	bash RunSystematics.sh
 
 TestRunCombine: ExecuteCombine

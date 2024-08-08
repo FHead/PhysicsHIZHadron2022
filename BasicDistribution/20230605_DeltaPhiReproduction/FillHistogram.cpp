@@ -49,6 +49,7 @@ int main(int argc, char *argv[])
    bool DoExtraZWeight           = CL.GetBool("DoExtraZWeight", false);
    int ExtraZWeightIndex         = DoExtraZWeight ? CL.GetInt("ExtraZWeightIndex") : 0;
    bool DoAdHocSignalHF          = CL.GetBool("DoAdHocSignalHF", false);
+   bool DoReplaceZWeight         = CL.GetBool("DoReplaceZWeight", true);
    double VZMin                  = CL.GetDouble("VZMin",-15);
    double VZMax                  = CL.GetDouble("VZMax",15);
 
@@ -64,7 +65,7 @@ int main(int argc, char *argv[])
 
    // Reduced set for faster running
    vector<pair<int, int>> NPV{pair<int, int>(0, 10), pair<int, int>(0, 1)};
-   vector<pair<int, int>> Centrality{pair<int, int>(0, 10), pair<int, int>(10, 30), pair<int, int>(30, 50), pair<int, int>(50, 90), pair<int, int>(0, 30), pair<int, int>(30, 90), pair<int, int>(0, 90), pair<int, int>(0, 50)};
+   vector<pair<int, int>> Centrality{pair<int, int>(0, 10), pair<int, int>(10, 30), pair<int, int>(30, 50), pair<int, int>(50, 90), pair<int, int>(0, 30), pair<int, int>(30, 90), pair<int, int>(0, 90), pair<int, int>(0, 50), pair<int, int>(50, 70), pair<int, int>(70, 90)};
    vector<pair<double, double>> TrackPT{pair<double, double>(1, 2), pair<double, double>(10, 100), pair<double, double>(1, 100), pair<double, double>(4, 10), pair<double, double>(2, 4), pair<double, double>(1, 10)};
    vector<double> ZPTMin{30, 40, 60};
    
@@ -139,10 +140,17 @@ int main(int argc, char *argv[])
          if(DoGen == true && M.genZPt->size() == 0)   continue;
          if(DoGen == false && M.zPt->size() == 0)     continue;
 
-         double ZPT  = DoGen ? M.genZPt->at(0)  : M.zPt->at(0);
-         double ZEta = DoGen ? M.genZEta->at(0) : M.zEta->at(0);
-         double ZPhi = DoGen ? M.genZPhi->at(0) : M.zPhi->at(0);
-         double ZMass= DoGen ? M.genZMass->at(0): M.zMass->at(0);
+         double ZPT   = DoGen ? M.genZPt->at(0)   : M.zPt->at(0);
+         double ZEta  = DoGen ? M.genZEta->at(0)  : M.zEta->at(0);
+         double ZPhi  = DoGen ? M.genZPhi->at(0)  : M.zPhi->at(0);
+         double ZMass = DoGen ? M.genZMass->at(0) : M.zMass->at(0);
+
+         double ZPZ   = ZPT * sinh(ZEta);
+         double ZP    = ZPT * cosh(ZEta);
+         double ZE    = sqrt(ZP * ZP + ZMass * ZMass);
+         double ZY    = 0.5 * log((ZE + ZPZ) / (ZE - ZPZ));
+
+         // cout << ZPZ << " " << ZEta << " " << 0.5 * log((ZP + ZPZ) / (ZP - ZPZ)) << " " << ZY << endl;
 
          double Mu1Eta = DoGen ? M.genMuEta1->at(0) : M.muEta1->at(0);
          double Mu1Phi = DoGen ? M.genMuPhi1->at(0) : M.muPhi1->at(0);
@@ -155,6 +163,14 @@ int main(int argc, char *argv[])
          double Mu2DPhi = DeltaPhi(Mu2Phi, ZPhi);
 
          double EventWeight = M.NCollWeight * M.ZWeight * M.VZWeight;
+         if(DoReplaceZWeight == true)
+         {
+            EventWeight = M.NCollWeight * M.VZWeight;
+            if(IsPP == true)
+               EventWeight = EventWeight * GetZWeightPPDataTrigger(ZPT, ZY);
+            else
+               EventWeight = EventWeight * GetZWeightPbPbDataTrigger(ZPT, ZY, M.hiBin);
+         }
          if(DoExtraZWeight == true && ExtraZWeightIndex >= 0)
             EventWeight = EventWeight * M.ExtraZWeight[ExtraZWeightIndex];
 
@@ -202,6 +218,7 @@ int main(int argc, char *argv[])
             double TrackPhi = M.trackDphi->at(iT) + ZPhi;
 
             double TrackDEta = TrackEta - ZEta;
+            double TrackDY   = TrackEta - ZY;
             double TrackDPhi = DeltaPhi(TrackPhi, ZPhi);
 
             double TrackWeight = M.trackWeight->at(iT) * M.trackResidualWeight->at(iT) * EventWeight;
@@ -222,13 +239,25 @@ int main(int argc, char *argv[])
                if(M.SignalVZ > VZMax)                                 continue;
 
                HDeltaPhi[iC]->Fill(fabs(TrackDPhi), TrackWeight);
+
                HDeltaEta[iC]->Fill(fabs(TrackDEta), TrackWeight);
 
                double zP = ZPT*cosh(ZEta);
                double zPz = ZPT*sinh(ZEta);
                double zE = sqrt(zP*zP+ZMass*ZMass);
                double zY = 0.5*log((zE+zPz)/(zE-zPz));
-               double TrackDY = TrackEta - zY;
+
+               double trkP = M.trackPt->at(iT) *cosh(TrackEta);
+               double trkPz = M.trackPt->at(iT) *sinh(TrackEta);
+
+               double piMass = 0.13957039;
+
+               double trkE = sqrt(trkP*trkP+piMass*piMass);
+               double trkY = 0.5*log((trkE+trkPz)/(trkE-trkPz));
+
+
+               //double TrackDY = TrackEta - zY;
+               double TrackDY = trkY - zY;
 
                HDeltaY[iC]->Fill(fabs(TrackDY), TrackWeight);
 
@@ -238,6 +267,11 @@ int main(int argc, char *argv[])
                }
                else{
                   HDeltaEtaJetSide[iC]->Fill(fabs(TrackDEta), TrackWeight);
+               
+               HDeltaY[iC]->Fill(fabs(TrackDY), TrackWeight);
+               if(fabs(TrackDPhi) < M_PI / 2)
+                  HDeltaYZSide[iC]->Fill(fabs(TrackDY), TrackWeight);
+               else
                   HDeltaYJetSide[iC]->Fill(fabs(TrackDY), TrackWeight);
                }
             }   

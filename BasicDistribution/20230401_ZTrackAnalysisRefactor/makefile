@@ -36,8 +36,8 @@ TestRun: Execute
 		--Output GraphPPMCGen_v17.root --IgnoreCentrality true --Fraction 1 --DoGenCorrelation true \
 		 > log/GraphPPMCGen_v17.out 2> log/GraphPPMCGen_v17.err < /dev/null &
 	./Execute --InputBase /eos/cms/store/group/phys_heavyions/pchou/OutputPPMCGen_v17/ \
-		--Output GraphPPMCGen_v17.root --IgnoreCentrality true --OnlyZeroSub true --Fraction 1 --DoGenCorrelation true \
-		 > log/GraphPPMCGen_v17.out 2> log/GraphPPMCGen0Sub_v17.err < /dev/null &
+		--Output GraphPPMCGen0NPU_v17.root --IgnoreCentrality true --OnlyZeroNPU true --Fraction 1 --DoGenCorrelation true \
+		 > log/GraphPPMCGen0NPU_v17.out 2> log/GraphPPMCGen0NPU_v17.err < /dev/null &
 	./Execute --InputBase /eos/cms/store/group/phys_heavyions/pchou/OutputMC_v17/ \
 		--Output GraphMCSignal0Sub_v17.root --OnlyZeroSub true --Fraction 1 \
 		 > log/GraphMCSignal0Sub_v17.out 2> log/GraphMCSignal0Sub_v17.err < /dev/null &
@@ -104,3 +104,24 @@ DrawProj: ExecuteDrawProj
 ExecuteDrawProj: ZtrackProj.cpp
 	g++ ZtrackProj.cpp -I. -I$(ProjectBase)/CommonCode/include \
 		-o ExecuteDrawProj `root-config --cflags --libs` -std=c++17
+
+DrawBkgSub: ExecuteBkgSub
+	./ExecuteBkgSub
+
+ExecuteBkgSub: ZtrackBkgSub.cpp
+	g++ ZtrackBkgSub.cpp -I. -I$(ProjectBase)/CommonCode/include \
+		-o ExecuteBkgSub `root-config --cflags --libs` -std=c++17
+
+DrawBasicBkgSub: ExecuteBasicBkgSub
+	./ExecuteBasicBkgSub
+
+ExecuteBasicBkgSub: ZBasicBkgSub.cpp
+	g++ ZBasicBkgSub.cpp -I. -I$(ProjectBase)/CommonCode/include \
+		-o ExecuteBasicBkgSub `root-config --cflags --libs` -std=c++17
+
+Draw2DBkgSub: Execute2DBkgSub
+	./Execute2DBkgSub
+
+Execute2DBkgSub: Z2DBkgSub.cpp
+	g++ Z2DBkgSub.cpp -I. -I$(ProjectBase)/CommonCode/include \
+		-o Execute2DBkgSub `root-config --cflags --libs` -std=c++17

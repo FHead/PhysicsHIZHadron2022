@@ -14,6 +14,8 @@ using namespace std;
 #include "TSystemDirectory.h"
 #include "TLorentzVector.h"
 
+#include "TRandom.h"
+
 #include "Messenger.h"
 #include "CommandLine.h"
 #include "CommonFunctions.h"
@@ -28,8 +30,12 @@ using namespace std;
 struct EventIndex;
 int main(int argc, char *argv[]);
 int FindFirstAbove(vector<EventIndex> &Indices, double X);
-double GetHFSum(PFTreeMessenger *M);
-double GetGenHFSum(GenParticleTreeMessenger *M);
+double GetHFSum(PFTreeMessenger *M, double MinPFPT);
+double GetGenHFSum(GenParticleTreeMessenger *M, double MinGenTrackPT);
+bool EventPassesZ(int iE, HiEventTreeMessenger &MSignalEvent, MuTreeMessenger &MSignalMu, 
+   SkimTreeMessenger &MSignalSkim, TriggerTreeMessenger &MSignalTrigger, 
+   bool IsPP, bool IsData, bool DoMCHiBinShift, bool DoGenLevel, double MCHiBinShift, double MaximumCentrality,
+   int& i_gen1, int& i_gen2, int& i_pair );
 
 struct EventIndex
 {
@@ -52,7 +58,7 @@ public:
 
 int main(int argc, char *argv[])
 {
-   string Version = "V17";
+   string Version = "V18";
 
    CommandLine CL(argc, argv);
 
@@ -61,6 +67,8 @@ int main(int argc, char *argv[])
    bool DoGenLevel                    = CL.GetBool("DoGenLevel", true);
    double Fraction                    = CL.GetDouble("Fraction", 1.00);
    double MinTrackPT                  = CL.GetDouble("MinTrackPT", 1.00);
+   double MinGenTrackPT               = CL.GetDouble("MinGenTrackPT", 0.40);
+   double MinPFPT                     = CL.GetDouble("MinPFPT", 0);
    bool IsData                        = CL.GetBool("IsData", false);
    bool IsPP                          = CL.GetBool("IsPP", false);
    bool DoGenCorrelation              = CL.GetBool("DoGenCorrelation", false);
@@ -69,6 +77,7 @@ int main(int argc, char *argv[])
    double MuonVeto                    = CL.GetDouble("MuonVeto", 0.01);
    string PFTreeName                  = IsPP ? "pfcandAnalyzer/pfTree" : "particleFlowAnalyser/pftree";
    PFTreeName                         = CL.Get("PFTree", PFTreeName);
+   bool SkipEventSelection            = CL.GetBool("SkipEventSelection", false);
 
    bool DoAlternateTrackSelection     = CL.GetBool("DoAlternateTrackSelection", false);
    int AlternateTrackSelection        = DoAlternateTrackSelection ? CL.GetInt("AlternateTrackSelection") : 0;
@@ -92,6 +101,18 @@ int main(int argc, char *argv[])
    double Oversample                  = CL.GetInteger("Oversample", 1);
    bool ReuseBackground               = CL.GetBool("ReuseBackground", false);
 
+   bool CheckForBackgroundZ           = CL.GetBool("CheckForBackgroundZ", false);
+
+   bool DoMCHiBinShift                = CL.GetBool("DoMCHiBinShift", true);
+   double MCHiBinShift                = DoMCHiBinShift ? CL.GetDouble("MCHiBinShift", 3) : 0;
+
+   double MaximumCentrality           = CL.GetDouble("MaximumCentrality", 1000);
+
+   bool WithProgressBar               = CL.GetBool("WithProgressBar", false);
+
+
+   //std::cout<<"TrackEfficiency"<<std::endl;
+
    TrkEff2017pp *TrackEfficiencyPP = nullptr;
    TrkEff2018PbPb *TrackEfficiencyPbPb = nullptr;
    if(DoTrackEfficiency == true)
@@ -110,17 +131,29 @@ int main(int argc, char *argv[])
             TrackEfficiencyPbPb = new TrkEff2018PbPb("general", "Tight", false, TrackEfficiencyPath);
       }
    }
+
+   ///std::cout<<"TrackResidual"<<std::endl;
+
    TrackResidualCentralityCorrector TrackResidual(TrackResidualPath);
 
    // Let's build an index of signal.  We need (SignalHF, VertexZ)
+   //std::cout<<"SignalFile"<<std::endl;
    TFile SignalFile(InputFileName.c_str());
    ZHadronMessenger MSignalZHadron(SignalFile, "Tree");
 
    vector<EventIndex> SignalIndex;
    map<EventIndex, int> SignalCount;
-   int SignalEntryCount = MSignalZHadron.GetEntries() * Fraction;
+   int SignalEntryCount = MSignalZHadron.GetEntries();// * Fraction;
+
+   gRandom->SetSeed(0);
+
+
    for(int iE = 0; iE < SignalEntryCount; iE++)
    {
+
+      if(iE % (int) (1/Fraction) != 0)
+         continue;
+
       MSignalZHadron.GetEntry(iE);
 
       EventIndex Index;
@@ -140,6 +173,9 @@ int main(int argc, char *argv[])
       if(MSignalZHadron.SignalHF < HFShift)
          continue;
 
+      if(!IsPP && ((MSignalZHadron.hiBin < 0) || (MSignalZHadron.hiBin > MaximumCentrality*2)) )   // too central, skip
+         continue;
+      
       SignalIndex.push_back(Index);
       SignalCount.insert(pair<EventIndex, int>(Index, 0));
    }
@@ -147,6 +183,7 @@ int main(int argc, char *argv[])
    cout << "Number of signal events to be matched: " << SignalIndex.size() << endl;
 
    // Declare output files
+   //std::cout<<"OutputFile"<<std::endl;
    TFile OutputFile(OutputFileName.c_str(), "RECREATE");
 
    TTree Tree("Tree", Form("Tree for ZHadron analysis, %s", Version.c_str()));
@@ -167,6 +204,9 @@ int main(int argc, char *argv[])
    Key = "Output";                  Value = InfoString(OutputFileName);          InfoTree.Fill();
    Key = "DoGenLevel";              Value = InfoString(DoGenLevel);              InfoTree.Fill();
    Key = "Fraction";                Value = InfoString(Fraction);                InfoTree.Fill();
+   Key = "MinTrackPT";              Value = InfoString(MinTrackPT);              InfoTree.Fill();
+   Key = "MinGenTrackPT";           Value = InfoString(MinGenTrackPT);           InfoTree.Fill();
+   Key = "MinPFPT";                 Value = InfoString(MinPFPT);                 InfoTree.Fill();
    Key = "IsData";                  Value = InfoString(IsData);                  InfoTree.Fill();
    Key = "IsPP";                    Value = InfoString(IsPP);                    InfoTree.Fill();
    Key = "DoGenCorrelation";        Value = InfoString(DoGenCorrelation);        InfoTree.Fill();
@@ -185,6 +225,8 @@ int main(int argc, char *argv[])
    Key = "HFCeiling";               Value = InfoString(HFCeiling);               InfoTree.Fill();
    Key = "Oversample";              Value = InfoString(Oversample);              InfoTree.Fill();
    Key = "ReuseBackground";         Value = InfoString(ReuseBackground);         InfoTree.Fill();
+   Key = "CheckForBackgroundZ";     Value = InfoString(CheckForBackgroundZ);     InfoTree.Fill();
+   Key = "MaximumCentrality";       Value = InfoString(MaximumCentrality);       InfoTree.Fill();
 
    TH2D H2D("H2D", "", 100, -6, 6, 100, -M_PI, M_PI);
 
@@ -204,6 +246,7 @@ int main(int argc, char *argv[])
       MZHadron.Clear();
 
       // Get the input file
+      //std::cout<<"InputFile"<<std::endl;
       TFile InputFile(BackgroundFileName.c_str());
 
       // Setup all the messengers.  In the future we'll add more for triggers etc.
@@ -212,9 +255,16 @@ int main(int argc, char *argv[])
       PbPbTrackTreeMessenger   MTrack(InputFile);
       GenParticleTreeMessenger MGen(InputFile);
       PFTreeMessenger          MPF(InputFile, PFTreeName);
+      SkimTreeMessenger        MSkim(InputFile);
+
+      //HiEventTreeMessenger     MSignalEvent(InputFile);
+      MuTreeMessenger          MSignalMu(InputFile);
+      SkimTreeMessenger        MSignalSkim(InputFile);
+      TriggerTreeMessenger     MSignalTrigger(InputFile);
 
       // Start looping over events
       int EntryCount = MEvent.GetEntries();
+
       ProgressBar Bar(cout, EntryCount);
       Bar.SetStyle(-1);
       // Bar.SetStyle(6);
@@ -222,7 +272,7 @@ int main(int argc, char *argv[])
       for(int iE = 0; iE < EntryCount; iE++)
       {
          // Progress bar stuff
-         if(EntryCount < 300 || (iE % (EntryCount / 250)) == 0)
+         if(WithProgressBar && (EntryCount < 300 || (iE % (EntryCount / 250)) == 0))
          {
             Bar.Update(iE);
             Bar.Print();
@@ -238,10 +288,60 @@ int main(int argc, char *argv[])
          else
             MTrack.GetEntry(iE);
          MPF.GetEntry(iE);
+         MSkim.GetEntry(iE);
+
+         if(SkipEventSelection == false)
+         {
+            if(IsPP == true && IsData == true)
+            {
+               int pprimaryVertexFilter = MSkim.PVFilter;
+               int beamScrapingFilter = MSkim.BeamScrapingFilter;
+
+               if(pprimaryVertexFilter == 0 || beamScrapingFilter == 0)
+                  continue;
+            }
+            if(IsPP == false && IsData == true)
+            {
+               int pprimaryVertexFilter = MSkim.PVFilter;
+               int phfCoincFilter2Th4 = MSkim.HFCoincidenceFilter2Th4;
+               int pclusterCompatibilityFilter = MSkim.ClusterCompatibilityFilter;
+
+               if(pprimaryVertexFilter == 0 || phfCoincFilter2Th4 == 0 || pclusterCompatibilityFilter == 0)
+                  continue;
+            }
+         }
+
+         //cout<<"MEvent.vz = "<<MEvent.vz<<", MEvent.hiBin = "<<MEvent.hiBin<<", MEvent.hiHF = "<<MEvent.hiHF<<endl;
+
+         //if(IsPP == false && IsData == false && DoMCHiBinShift == true)   // PbPb MC, we shift 1.5% as per Kaya
+         //{
+         //   MEvent.hiBin = MEvent.hiBin - MCHiBinShift;
+         //   if(MEvent.hiBin < 0)   // too central, skip
+         //      continue;
+         //}
+
+         if(MEvent.hiBin > MaximumCentrality * 2)
+            continue;
+
+         int i_gen1 = -1, i_gen2 = -1, i_pair = -1;
+
+         bool Z_passed;
+
+         if(CheckForBackgroundZ == true){
+            
+            Z_passed = EventPassesZ(iE, MEvent, MSignalMu, MSignalSkim, MSignalTrigger, 
+               IsPP, IsData, DoMCHiBinShift, DoGenLevel, MCHiBinShift, MaximumCentrality, i_gen1, i_gen2, i_pair);
+            if(Z_passed == false)
+               continue;
+
+            MSignalMu.GetEntry(iE);
+         }
 
          // Now we find if there is a signal event that this background event can be matched to
 
-         double SumHF = DoGenCorrelation ? GetGenHFSum(&MGen) : (DoSumET ? MEvent.hiHF : GetHFSum(&MPF));
+         //double SumHF = DoGenCorrelation ? GetGenHFSum(&MGen, MinGenTrackPT) : (DoSumET ? MEvent.hiHF : GetHFSum(&MPF, MinPFPT));
+         double SumHF = DoGenCorrelation ? GetGenHFSum(&MGen, MinGenTrackPT) : GetHFSum(&MPF, MinPFPT);
+
          double VZ = MEvent.vz;
 
          double ShiftedHF = SumHF + HFShift;
@@ -264,6 +364,9 @@ int main(int argc, char *argv[])
             if(fabs(SignalVZ - VZ) > VZTolerance)
                continue;
 
+            //cout<<"SignalVZ = "<<SignalVZ<<", VZ = "<<VZ<<", VZTolerance = "<<VZTolerance<<endl;
+
+
             // cout << "We have a match!  Signal (" << SignalHF << " " << SignalVZ << "), Background (" << SumHF << " " << VZ << ")" << endl;
 
             // we have a winner!
@@ -273,10 +376,34 @@ int main(int argc, char *argv[])
             MZHadron.CopyNonTrack(MSignalZHadron);   // this needs to be implemented
             MZHadron.BackgroundHF = SumHF;
 
+            double Mu1Eta = DoGenCorrelation ? MZHadron.genMuEta1->at(0) : MZHadron.muEta1->at(0);
+            double Mu1Phi = DoGenCorrelation ? MZHadron.genMuPhi1->at(0) : MZHadron.muPhi1->at(0);
+            double Mu2Eta = DoGenCorrelation ? MZHadron.genMuEta2->at(0) : MZHadron.muEta2->at(0);
+            double Mu2Phi = DoGenCorrelation ? MZHadron.genMuPhi2->at(0) : MZHadron.muPhi2->at(0);
+
+            if(CheckForBackgroundZ && ((DoGenCorrelation && i_gen1 != -1 && i_gen2 != -1 ) || (!DoGenCorrelation && i_pair != -1)) ){
+
+               double SigMu1Eta = DoGenCorrelation ? MSignalMu.GenEta[i_gen1] : MSignalMu.DiEta1[i_pair];
+               double SigMu1Phi = DoGenCorrelation ? MSignalMu.GenPhi[i_gen1] : MSignalMu.DiPhi1[i_pair];
+               double SigMu2Eta = DoGenCorrelation ? MSignalMu.GenEta[i_gen2] : MSignalMu.DiEta2[i_pair];
+               double SigMu2Phi = DoGenCorrelation ? MSignalMu.GenPhi[i_gen2] : MSignalMu.DiPhi2[i_pair];
+            
+               if(fabs(Mu1Eta-SigMu1Eta)<0.0001 && fabs(Mu2Eta-SigMu2Eta)<0.0001 && fabs(Mu1Phi-SigMu1Phi)<0.0001 && fabs(Mu2Phi-SigMu2Phi)<0.0001)
+                  continue;
+            }
+
             // Copy over background tracks
             int NTrack = DoGenCorrelation ? MGen.Mult : (IsPP ? MTrackPP.nTrk : MTrack.TrackPT->size());
+
+
             for(int itrack = 0; itrack < NTrack; itrack++)
             {
+
+               if(DoGenCorrelation == true && IsData == false && IsPP == false){
+                  if(MGen.PT->at(itrack) < MinGenTrackPT )
+                     continue;
+               }
+
                if(DoGenCorrelation == false)   // track selection on reco
                {
                   if(IsPP == true)
@@ -325,10 +452,6 @@ int main(int argc, char *argv[])
                int TrackCharge = DoGenCorrelation ? MGen.Charge->at(itrack) : (IsPP ? MTrackPP.trkCharge[itrack] : MTrack.TrackCharge->at(itrack));
                int SubEvent    = DoGenCorrelation ? (MGen.SubEvent->at(itrack) + 1) : (IsPP ? 0 : 1);
 
-               double Mu1Eta = DoGenCorrelation ? MZHadron.genMuEta1->at(0) : MZHadron.muEta1->at(0);
-               double Mu1Phi = DoGenCorrelation ? MZHadron.genMuPhi1->at(0) : MZHadron.muPhi1->at(0);
-               double Mu2Eta = DoGenCorrelation ? MZHadron.genMuEta2->at(0) : MZHadron.muEta2->at(0);
-               double Mu2Phi = DoGenCorrelation ? MZHadron.genMuPhi2->at(0) : MZHadron.muPhi2->at(0);
 
                double DeltaEtaMu1 = TrackEta - Mu1Eta;
                double DeltaEtaMu2 = TrackEta - Mu2Eta;
@@ -344,6 +467,8 @@ int main(int argc, char *argv[])
 
                double ZEta = DoGenCorrelation ? MZHadron.genZEta->at(0) : MZHadron.zEta->at(0);
                double ZPhi = DoGenCorrelation ? MZHadron.genZPhi->at(0) : MZHadron.zPhi->at(0);
+
+               //cout<<"TrackEta = "<<TrackEta<<", ZEta = "<<ZEta<<endl;
 
                double deltaEta = TrackEta - ZEta;
                double deltaPhi = DeltaPhi(TrackPhi, ZPhi);
@@ -393,10 +518,11 @@ int main(int argc, char *argv[])
          }
       }
 
-      Bar.Update(EntryCount);
-      Bar.Print();
-      Bar.PrintLine();
-
+      if(WithProgressBar){
+         Bar.Update(EntryCount);
+         Bar.Print();
+         Bar.PrintLine();
+      }
       InputFile.Close();
    
       int NonMatchedCount = 0;
@@ -468,7 +594,7 @@ int FindFirstAbove(vector<EventIndex> &Indices, double X)
    return Low;
 }
 
-double GetHFSum(PFTreeMessenger *M)
+double GetHFSum(PFTreeMessenger *M, double MinPFPT)
 {
    if(M == nullptr)
       return -1;
@@ -477,7 +603,7 @@ double GetHFSum(PFTreeMessenger *M)
 
    double Sum = 0;
    for(int iPF = 0; iPF < M->ID->size(); iPF++)
-      if(fabs(M->Eta->at(iPF)) > 3 && fabs(M->Eta->at(iPF)) < 5)
+      if(fabs(M->Eta->at(iPF)) > 3 && fabs(M->Eta->at(iPF)) < 5 && M->PT->at(iPF) > MinPFPT )
          Sum = Sum + M->E->at(iPF);
 
    // cout << Sum << endl;
@@ -485,7 +611,7 @@ double GetHFSum(PFTreeMessenger *M)
    return Sum;
 }
 
-double GetGenHFSum(GenParticleTreeMessenger *M)
+double GetGenHFSum(GenParticleTreeMessenger *M, double MinGenTrackPT)
 {
    if(M == nullptr)
       return -1;
@@ -499,6 +625,8 @@ double GetGenHFSum(GenParticleTreeMessenger *M)
          continue;
       if(fabs(M->Eta->at(iGen)) > 5)
          continue;
+      if(fabs(M->PT->at(iGen)) < MinGenTrackPT)
+         continue;
       if(M->DaughterCount->at(iGen) > 0)
          continue;
       Sum = Sum + M->PT->at(iGen) * cosh(M->Eta->at(iGen));
@@ -508,3 +636,178 @@ double GetGenHFSum(GenParticleTreeMessenger *M)
 }
 
 
+bool EventPassesZ(int iE, HiEventTreeMessenger &MSignalEvent, MuTreeMessenger &MSignalMu, 
+   SkimTreeMessenger &MSignalSkim, TriggerTreeMessenger &MSignalTrigger, 
+   bool IsPP, bool IsData, bool DoMCHiBinShift, bool DoGenLevel, double MCHiBinShift, double MaximumCentrality,
+   int& i_gen1, int& i_gen2, int& i_pair)
+{
+
+   bool Z_passed = true;
+
+   TLorentzVector VGenZ, VGenMu1, VGenMu2;
+
+   MSignalEvent.GetEntry(iE);
+   MSignalMu.GetEntry(iE);
+   MSignalSkim.GetEntry(iE);
+   MSignalTrigger.GetEntry(iE);
+
+
+   if(IsPP == false && IsData == false && DoMCHiBinShift == true)   // PbPb MC, we shift 1.5% as per Kaya
+   {
+      MSignalEvent.hiBin = MSignalEvent.hiBin - MCHiBinShift;
+      if((MSignalEvent.hiBin < 0) || (MSignalEvent.hiBin > MaximumCentrality*2) )   // too central, skip
+      {   
+         Z_passed = false;
+         return false;
+      }
+   }
+
+   // Do event selection and triggers
+   if(IsPP == true)
+   {
+      if(IsData == true)
+      {
+         int pprimaryVertexFilter = MSignalSkim.PVFilter;
+         int beamScrapingFilter = MSignalSkim.BeamScrapingFilter;
+
+         // Event selection criteria
+         //    see https://twiki.cern.ch/twiki/bin/viewauth/CMS/HIPhotonJe5TeVpp2017PbPb2018
+         if(pprimaryVertexFilter == 0 || beamScrapingFilter == 0)
+         {   
+            Z_passed = false;
+            return false;
+         }
+
+         //HLT trigger to select dimuon events, see Kaya's note: AN2019_143_v12, p.5
+         int HLT_HIL2Mu12 = MSignalTrigger.CheckTriggerStartWith("HLT_HIL2Mu12");
+         int HLT_HIL3Mu12 = MSignalTrigger.CheckTriggerStartWith("HLT_HIL3Mu12");
+         if(HLT_HIL3Mu12 == 0 && HLT_HIL2Mu12 == 0)
+         {   
+            Z_passed = false;
+            return false;
+         }
+      }
+   }
+   else
+   {
+      if(IsData == true)
+      {
+         int pprimaryVertexFilter = MSignalSkim.PVFilter;
+         int phfCoincFilter2Th4 = MSignalSkim.HFCoincidenceFilter2Th4;
+         int pclusterCompatibilityFilter = MSignalSkim.ClusterCompatibilityFilter;
+
+         // Event selection criteria
+         //    see https://twiki.cern.ch/twiki/bin/viewauth/CMS/HIPhotonJe5TeVpp2017PbPb2018
+         if(pprimaryVertexFilter == 0 || phfCoincFilter2Th4 == 0 || pclusterCompatibilityFilter == 0)
+         {   
+            Z_passed = false;
+            return false;
+         }
+
+         //HLT trigger to select dimuon events, see Kaya's note: AN2019_143_v12, p.5
+         int HLT_HIL3Mu12 = MSignalTrigger.CheckTriggerStartWith("HLT_HIL3Mu12");
+         if(HLT_HIL3Mu12 == 0)
+         {   
+            Z_passed = false;
+            return false;
+         }
+      }
+   }
+
+   // Loop over gen muons
+   if(DoGenLevel == true && MSignalMu.NGen > 1)
+   {
+
+      bool isgoodgen = false;
+      for(int igen1 = 0; igen1 < MSignalMu.NGen; igen1++)
+      {
+         // We only want muon from Z's
+         if(MSignalMu.GenMom[igen1] != 23)
+            continue;
+         if(MSignalMu.GenPT[igen1] < 20)
+            continue;
+         if(fabs(MSignalMu.GenEta[igen1]) > 2.4)
+            continue;
+
+         VGenMu1.SetPtEtaPhiM(MSignalMu.GenPT[igen1],
+               MSignalMu.GenEta[igen1],
+               MSignalMu.GenPhi[igen1],
+               M_MU);
+
+         for(int igen2 = igen1 + 1; igen2 < MSignalMu.NGen; igen2++)
+         {
+            // We only want muon from Z's
+            if(MSignalMu.GenMom[igen2] != 23)
+               continue;
+            if(MSignalMu.GenPT[igen2] < 20)
+               continue;
+            if(fabs(MSignalMu.GenEta[igen2]) > 2.4)
+               continue;
+
+            VGenMu2.SetPtEtaPhiM(MSignalMu.GenPT[igen2],
+                  MSignalMu.GenEta[igen2],
+                  MSignalMu.GenPhi[igen2],
+                  M_MU);
+
+            VGenZ = VGenMu1 + VGenMu2;
+
+            if(VGenZ.M() < 60 || VGenZ.M() > 120)
+               continue;
+            if(fabs(VGenZ.Rapidity()) > 2.4)
+               continue;
+
+            isgoodgen = true;
+
+            // We are only taking the first Z.
+            if(i_gen1 == -1)
+               i_gen1 = igen1;
+            if(i_gen2 == -1)
+               i_gen2 = igen2;
+
+         }
+      }
+
+      if(!isgoodgen)
+      {   
+         Z_passed = false;
+         return false;
+      }
+   }
+
+   // Loop over reco dimuon pairs
+
+   bool isgooddimuon = false;
+   for(int ipair = 0; ipair < MSignalMu.NDi; ipair++)
+   {
+      // We want opposite-charge muons with some basic kinematic cuts
+      if(MSignalMu.DiCharge1[ipair] == MSignalMu.DiCharge2[ipair])        continue;
+      if(fabs(MSignalMu.DiEta1[ipair]) > 2.4)                             continue;
+      if(fabs(MSignalMu.DiEta2[ipair]) > 2.4)                             continue;
+      if(fabs(MSignalMu.DiPT1[ipair]) < 20)                               continue;
+      if(fabs(MSignalMu.DiPT2[ipair]) < 20)                               continue;
+      if(MSignalMu.DimuonPassTightCut(ipair) == false)                    continue;
+      if(MSignalMu.DiMass[ipair] < 60 || MSignalMu.DiMass[ipair] > 120)   continue;
+      
+      TLorentzVector Mu1, Mu2;
+      Mu1.SetPtEtaPhiM(MSignalMu.DiPT1[ipair], MSignalMu.DiEta1[ipair], MSignalMu.DiPhi1[ipair], M_MU);
+      Mu2.SetPtEtaPhiM(MSignalMu.DiPT2[ipair], MSignalMu.DiEta2[ipair], MSignalMu.DiPhi2[ipair], M_MU);
+      TLorentzVector Z = Mu1 + Mu2;
+      if(fabs(Z.Rapidity()) > 2.4)
+         continue;
+
+      isgooddimuon = true;
+
+      // We are only taking the first Z candidate.
+      if(i_pair==-1)
+         i_pair = ipair;
+
+   }
+
+   if(!isgooddimuon)
+   {   
+      Z_passed = false;
+      return false;
+   }
+
+   return Z_passed;   
+}

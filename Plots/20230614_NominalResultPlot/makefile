@@ -2,8 +2,8 @@
 default: Prepare TestRunCentrality
 
 Prepare:
-	ln -sf $(ProjectBase)/BasicDistribution/20230605_DeltaPhiReproduction/ Root
-	ln -sf $(ProjectBase)/Systematics/20230616_SystematicsHarvesting/Sys/ Sys
+	ln -sf $(ProjectBase)/BasicDistribution/20230605_DeltaPhiReproduction Root
+	ln -sf $(ProjectBase)/Systematics/20230616_SystematicsHarvesting/Sys/v17 Sys
 
 TestRun: Execute
 	./Execute --OutputBase Test --SkipSystematics true

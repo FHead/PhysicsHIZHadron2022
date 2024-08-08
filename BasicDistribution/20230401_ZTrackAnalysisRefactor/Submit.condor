@@ -1,4 +1,4 @@
-executable   = ./do_ZTrackAna.sh
+executable   = ./do_ZTrackAna1.sh
 
 arguments    = $(ProcId)
 
@@ -8,11 +8,13 @@ log          = ./log/ZtrackAna.$(ClusterId).$(ProcId).log
 
 request_cpus   = 10
 
+requirements = (OpSysAndVer =?= "AlmaLinux9")
+
 initialdir = /afs/cern.ch/user/p/pchou/PhysicsHIZHadron2022/BasicDistribution/20230401_ZTrackAnalysisRefactor
 
 should_transfer_files = YES
 when_to_transfer_output = ON_EXIT
 
-+JobFlavour = "nextweek"
++JobFlavour = "workday"
 
-queue 22
+queue 2

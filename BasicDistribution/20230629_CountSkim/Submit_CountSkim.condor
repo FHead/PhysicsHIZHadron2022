@@ -2,9 +2,9 @@ executable   = ./do_CountSkim.sh
 
 arguments    = $(ProcId)
 
-output       = ./SkimCount/log/20230718/CountSkim.$(ClusterId).$(ProcId).out
-error        = ./SkimCount/log/20230718/CountSkim.$(ClusterId).$(ProcId).err
-log          = ./SkimCount/log/20230718/CountSkim.$(ClusterId).$(ProcId).log
+output       = ./SkimCount/log/20240121/CountSkim.$(ClusterId).$(ProcId).out
+error        = ./SkimCount/log/20240121/CountSkim.$(ClusterId).$(ProcId).err
+log          = ./SkimCount/log/20240121/CountSkim.$(ClusterId).$(ProcId).log
 
 request_cpus   = 10
 
@@ -13,6 +13,6 @@ initialdir = /afs/cern.ch/user/p/pchou/PhysicsHIZHadron2022/BasicDistribution/20
 should_transfer_files = YES
 when_to_transfer_output = ON_EXIT
 
-+JobFlavour = "tomorrow"
++JobFlavour = "nextweek"
 
 queue 26

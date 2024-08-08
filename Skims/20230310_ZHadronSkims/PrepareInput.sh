@@ -30,7 +30,7 @@ Condor=Submit.condor
 echo "Universe              = vanilla"           > $Condor
 echo "Executable            = $PWD/RunCondor.sh" >> $Condor
 echo "should_transfer_files = NO"                >> $Condor
-echo "+JobFlavour           = \"tomorrow\""      >> $Condor
+echo "+JobFlavour           = \"testmatch\""      >> $Condor
 echo                                             >> $Condor
 
 Count=0

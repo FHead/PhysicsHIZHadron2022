@@ -33,13 +33,14 @@ Condor=Submit.condor
 echo "Universe              = vanilla"                         > $Condor
 echo "Executable            = $PWD/RunCondor.sh"               >> $Condor
 echo "should_transfer_files = NO"                              >> $Condor
-echo "+JobFlavour           = \"tomorrow\""                    >> $Condor
+echo "requirements = (OpSysAndVer =?= \"AlmaLinux9\")"         >> $Condor
+echo "+JobFlavour           = \"testmatch\""                   >> $Condor
 echo                                                           >> $Condor
 
 Count=0
 for i in `ls $Directory/*root`
 do
-   BackgroundFiles=`ls $BackgroundFolder/* | shuf | head -n$BackgroundCount | tr '\n' ',' | sed "s/,$//"`
+   BackgroundFiles=`ls $BackgroundFolder/*.root | shuf | head -n$BackgroundCount | tr '\n' ',' | sed "s/,$//"`
 
    echo "Arguments = $PWD $ProjectBase $CMSSW_BASE $OutputBase/Result${Count}.root $Count --Background $BackgroundFiles --Input $i $@" >> $Condor
    echo "Output    = $ScriptFolder/Part${Count}.out"                                         >> $Condor

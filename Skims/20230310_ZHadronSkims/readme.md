@@ -61,6 +61,9 @@
    * Replacing Z weight for data with correct trigger treatment
 * Version 17 - 2023 Aug 10
    * Replacing DimuonPassTightCut for dxy and dz with absolute values
+* Version 18 - 2024 Mar 5
+   * Implement MinGenTrackPT and MinPFPT (only for GetHFSum).
+
 
 ## Arguments
 

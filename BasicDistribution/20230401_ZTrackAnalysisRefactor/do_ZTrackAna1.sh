@@ -1,11 +1,13 @@
 #!/bin/sh
 source /cvmfs/cms.cern.ch/cmsset_default.sh
 
-CMSSWDir=/afs/cern.ch/user/p/pchou/CMSSW_12_5_2_patch1/src
+CMSSWDir=/afs/cern.ch/user/p/pchou/CMSSW_13_3_1/src
 
 cd $CMSSWDir
 
 cmsenv
+
+cd /afs/cern.ch/user/p/pchou/PhysicsHIZHadron2022/
 
 source /afs/cern.ch/user/p/pchou/PhysicsHIZHadron2022/SetupAnalysis.sh
 
@@ -15,22 +17,19 @@ mkdir -p log
 
 if [ $1 -eq 0 ]
 then
-	./Execute --InputBase /eos/cms/store/group/phys_heavyions/pchou/OutputData_v16/ --Output /eos/cms/store/group/phys_heavyions/pchou/BasicPlots/GraphDataSignal_v16-2.root --Fraction 1
+	./Execute --InputBase /eos/cms/store/group/phys_heavyions/pchou/OutputMCSigBkg_v17b_tor50/ --Output /eos/cms/store/group/phys_heavyions/pchou/BasicPlots/GraphMCSigBkg_v17b_tor50.root --Fraction 1
 elif [ $1 -eq 1 ]
 then
-	./Execute --InputBase /eos/cms/store/group/phys_heavyions/pchou/OutputMC_v16/ --Output /eos/cms/store/group/phys_heavyions/pchou/BasicPlots/GraphMCSignal_v16-2.root --Fraction 1
-elif [ $1 -eq 2 ]
-then
-	./Execute --InputBase /eos/cms/store/group/phys_heavyions/pchou/OutputDataLoose_v16/ --Output /eos/cms/store/group/phys_heavyions/pchou/BasicPlots/GraphDataSignalLoose_v16-2.root --Fraction 1
-elif [ $1 -eq 3 ]
-then
-	./Execute --InputBase /eos/cms/store/group/phys_heavyions/pchou/OutputDataTight_v16/ --Output /eos/cms/store/group/phys_heavyions/pchou/BasicPlots/GraphDataSignalTight_v16-2.root --Fraction 1
-elif [ $1 -eq 4 ]
-then
-	./Execute --InputBase /eos/cms/store/group/phys_heavyions/pchou/OutputMCLoose_v16/ --Output /eos/cms/store/group/phys_heavyions/pchou/BasicPlots/GraphMCSignalLoose_v16-2.root --Fraction 1
-elif [ $1 -eq 5 ]
-then
-	./Execute --InputBase /eos/cms/store/group/phys_heavyions/pchou/OutputMCTight_v16/ --Output /eos/cms/store/group/phys_heavyions/pchou/BasicPlots/GraphMCSignalTight_v16-2.root --Fraction 1
+	./Execute --InputBase /eos/cms/store/group/phys_heavyions/pchou/OutputPPMCSigBkg_v17b_tor50/ --Output /eos/cms/store/group/phys_heavyions/pchou/BasicPlots/GraphPPMCSigBkg_v17b_tor50.root --Fraction 1 --IgnoreCentrality true
+#elif [ $1 -eq 4 ]
+#then
+#	./Execute --InputBase /eos/cms/store/group/phys_heavyions/pchou/OutputDataSigBkg_v17b_checkz/ --Output /eos/cms/store/group/phys_heavyions/pchou/BasicPlots/GraphDataSigBkg_v17b_checkz.root --Fraction 1
+#elif [ $1 -eq 5 ]
+#then
+#	./Execute --InputBase /eos/cms/store/group/phys_heavyions/pchou/OutputPPDataSigBkg_v17b_checkz/ --Output /eos/cms/store/group/phys_heavyions/pchou/BasicPlots/GraphPPDataSigBkg_v17b_checkz.root --Fraction 1 --IgnoreCentrality true
+#elif [ $1 -eq 6 ]
+#then
+#	./Execute --InputBase /eos/cms/store/group/phys_heavyions/pchou/OutputMCGenSigBkg_v17b_checkz/ --Output /eos/cms/store/group/phys_heavyions/pchou/BasicPlots/GraphMCGenSigBkg_v17b_checkz.root --Fraction 1 --IgnoreCentrality true  --DoGenCorrelation true
 else
 	echo "Input number exceeded"
 fi
